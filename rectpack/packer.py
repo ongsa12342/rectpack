@@ -3,7 +3,7 @@ from .maxrects import MaxRectsBssf
 import operator
 import itertools
 import collections
-
+from .geometry import Rectangle
 import decimal
 
 # Float to Decimal helper
@@ -156,6 +156,38 @@ class PackerBBFMixin(object):
 
     # only create this getter once
     first_item = operator.itemgetter(0)
+
+    def add_init_rect(self, x, y, width, height, rid=None):
+
+        # Try packing into open bins
+        fit = ((b.fitness(width, height), b) for b in self._open_bins)
+        fit = (b for b in fit if b[0] is not None)
+        try:
+            _, best_bin = min(fit, key=self.first_item)
+            rect = Rectangle(x, y, width, height)
+            rect.rid = rid
+            best_bin._add_skyline(rect)
+            best_bin.rectangles.append(rect)
+
+            return True
+        except ValueError:
+            pass
+
+        # Try packing into one of the empty bins
+        while True:
+            # can we find an unopened bin that will hold this rect?
+            new_bin = self._new_open_bin(width, height, rid=rid)
+            if new_bin is None:
+                return False
+
+            # _new_open_bin may return a bin that's too small,
+            # so we have to double-check
+
+            rect = Rectangle(x, y, width, height)
+            rect.rid = rid
+            new_bin._add_skyline(rect)
+            new_bin.rectangles.append(rect)
+            return True
 
     def add_rect(self, width, height, rid=None):
  
@@ -316,6 +348,7 @@ class Packer(PackerOnline):
         # User provided bins and Rectangles
         self._avail_bins = collections.deque()
         self._avail_rect = collections.deque()
+        self._init_rect = collections.deque()
 
         # Aux vars used during packing
         self._sorted_rect = []
@@ -325,6 +358,9 @@ class Packer(PackerOnline):
 
     def add_rect(self, width, height, rid=None):
         self._avail_rect.append((width, height, rid))
+
+    def add_init_rect(self, x, y, width, height, rid=None):
+        self._init_rect.append((x, y, width, height, rid))
 
     def _is_everything_ready(self):
         return self._avail_rect and self._avail_bins
@@ -344,6 +380,10 @@ class Packer(PackerOnline):
 
         # If enabled sort rectangles
         self._sorted_rect = self._sort_algo(self._avail_rect)
+
+        # Initial rect
+        for r in self._init_rect:
+            super(Packer, self).add_init_rect(*r)
 
         # Start packing
         for r in self._sorted_rect:
