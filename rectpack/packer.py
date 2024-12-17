@@ -166,7 +166,10 @@ class PackerBBFMixin(object):
             _, best_bin = min(fit, key=self.first_item)
             rect = Rectangle(x, y, width, height)
             rect.rid = rid
-            best_bin._add_skyline(rect)
+            try:
+                best_bin._split(rect)
+            except:
+                best_bin._add_skyline(rect)
             best_bin.rectangles.append(rect)
 
             return True
@@ -185,7 +188,10 @@ class PackerBBFMixin(object):
 
             rect = Rectangle(x, y, width, height)
             rect.rid = rid
-            new_bin._add_skyline(rect)
+            try:
+                new_bin._split(rect)
+            except:
+                new_bin._add_skyline(rect)
             new_bin.rectangles.append(rect)
             return True
 
